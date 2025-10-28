@@ -16,7 +16,7 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const leadsCollection = db.collection('leads');
-const sellersCollection = db.collection('sellers'); // Mantener la referencia
+const sellersCollection = db.collection('sellers');
 
 // ************************************************************
 // 2. UTILIDADES Y MANEJO DE VISTAS (Se mantienen)
@@ -103,11 +103,9 @@ document.getElementById('upload-form').addEventListener('submit', async function
         // CORRECCIÓN CLAVE: LEER TODOS LOS NÚMEROS EXISTENTES SIN USAR .select()
         progressBar.textContent = '20% (Verificando duplicados existentes...)';
         
-        // Hacemos una consulta general, es menos eficiente en lectura, pero más compatible
         const existingLeadsSnapshot = await leadsCollection.get();
         const existingPhoneNumbers = new Set();
         existingLeadsSnapshot.forEach(doc => {
-            // Usamos .data().phone para extraer el campo
             existingPhoneNumbers.add(doc.data().phone);
         });
 
@@ -123,12 +121,11 @@ document.getElementById('upload-form').addEventListener('submit', async function
         const uploadDate = firebase.firestore.Timestamp.now();
         const batchId = uploadDate.toDate().getTime().toString(); 
 
-        // Los batches están limitados a 500 operaciones por lote
         const MAX_BATCH_SIZE = 499; 
         let currentBatch = db.batch();
         let batchCounter = 0;
 
-        const phoneNumbersInFile = new Set(); // Para duplicados dentro del mismo archivo
+        const phoneNumbersInFile = new Set();
         
         // Procesamiento e Inserción
         progressBar.textContent = '60% (Preparando inserción por lotes...)';
@@ -247,7 +244,7 @@ document.getElementById('sale-search-form').addEventListener('submit', async fun
                     <li>**Estado de Venta:** <span style='font-weight: bold; color: ${lead.isSale ? 'green' : 'red'}'>${saleStatus}</span></li>
                 </ul>`;
 
-            if (!lead.isSale || saleType === 'CHARGE') { // Permitir CHARGE incluso si ya está vendido
+            if (!lead.isSale || saleType === 'CHARGE') { 
                 html += `<button id='register-sale-btn' data-doc-id='${docId}' 
                         data-phone='${lead.phone}' 
                         data-seller='${sellerName}' 
@@ -299,7 +296,7 @@ document.getElementById('lead-info-container').addEventListener('click', async f
 });
 
 // ************************************************************
-// 5. LÓGICA DE ESTADÍSTICAS Y HISTORIAL (CARGA DE DATOS)
+// 5. LÓGICA DE ESTADÍSTICAS (GENERACIÓN DE TARJETAS) - CORREGIDA
 // ************************************************************
 
 /** Carga las estadísticas globales y genera las opciones del filtro */
@@ -327,7 +324,7 @@ async function loadStats() {
                 monthOptions.set(uploadMonth, new Date(uploadMonth).toLocaleDateString('es-ES', { year: 'numeric', month: 'long' }));
             }
 
-            // Aplicar filtro si existe (ya que no se puede usar query.where en el SUM)
+            // Aplicar filtro si existe
             const isFiltered = !filterMonth || (filterMonth === uploadMonth);
             
             totalLeads++;
@@ -345,12 +342,67 @@ async function loadStats() {
         });
 
         const conversionRate = totalLeadsFiltered > 0 && totalSales > 0 ? ((totalSales / totalLeadsFiltered) * 100).toFixed(2) : 0;
+        const totalAmountStr = totalAmount.toFixed(2);
+        const totalNewAmountStr = (newSalesCount > 0 ? (totalAmount * (newSalesCount / totalSales)) : 0).toFixed(2); // Estimación simple
+        const totalChargeAmountStr = (chargeSalesCount > 0 ? (totalAmount * (chargeSalesCount / totalSales)) : 0).toFixed(2); // Estimación simple
         
-        // Actualizar el DOM
-        document.getElementById('total-leads').textContent = totalLeads.toLocaleString();
-        document.getElementById('total-sales').textContent = totalSales.toLocaleString();
-        document.getElementById('total-amount').textContent = `$${totalAmount.toFixed(2)}`;
-        document.getElementById('conversion-rate').textContent = `${conversionRate}%`;
+        // --- GENERACIÓN DEL HTML DE LAS TARJETAS ---
+        let statsHTML = '';
+
+        // Tarjeta 1: Total Global de Leads
+        statsHTML += `
+            <div class="card card-total">
+                <h3><i class="fas fa-database"></i> Leads Totales</h3>
+                <p>Leads cargados en el sistema.</p>
+                <strong>${totalLeads.toLocaleString()}</strong>
+            </div>
+        `;
+
+        // Tarjeta 2: Monto Total Acumulado
+        statsHTML += `
+            <div class="card card-sale-amount">
+                <h3><i class="fas fa-dollar-sign"></i> Monto Total Ventas</h3>
+                <p>Monto acumulado (NEW + CHARGE) en este período.</p>
+                <strong>$${totalAmountStr}</strong>
+            </div>
+        `;
+
+        // Tarjeta 3: Ventas NEW SALE (Clicable)
+        const salesLinkNew = `sales_list.html?filter_month=${filterMonth}&sale_type=NEW`;
+        statsHTML += `
+            <a href="${salesLinkNew}" style="text-decoration: none;">
+                <div class="card card-new-sale" style="cursor: pointer;">
+                    <h3><i class="fas fa-hand-holding-usd"></i> NEW SALES</h3>
+                    <p>Ventas: ${newSalesCount.toLocaleString()} / Monto: **$${totalNewAmountStr}**</p>
+                    <strong>${newSalesCount.toLocaleString()}</strong>
+                </div>
+            </a>
+        `;
+
+        // Tarjeta 4: Ventas CHARGE (Clicable)
+        const salesLinkCharge = `sales_list.html?filter_month=${filterMonth}&sale_type=CHARGE`;
+        statsHTML += `
+            <a href="${salesLinkCharge}" style="text-decoration: none;">
+                <div class="card card-charge-sale" style="cursor: pointer;">
+                    <h3><i class="fas fa-sync-alt"></i> CHARGES (Recurrente)</h3>
+                    <p>Cobros: ${chargeSalesCount.toLocaleString()} / Monto: **$${totalChargeAmountStr}**</p>
+                    <strong>${chargeSalesCount.toLocaleString()}</strong>
+                </div>
+            </a>
+        `;
+        
+        // Tarjeta 5: Tasa de Conversión (Agregamos una métrica útil)
+        statsHTML += `
+            <div class="card card-upload-info">
+                <h3><i class="fas fa-chart-line"></i> Tasa Conversión</h3>
+                <p>Ventas / Leads Filtrados.</p>
+                <strong>${conversionRate}%</strong>
+            </div>
+        `;
+
+
+        // Insertar el HTML generado en el contenedor
+        document.getElementById('global-stats-container').innerHTML = statsHTML;
         
         // Generar filtro de meses
         const filterSelect = document.getElementById('filter_month');
@@ -369,6 +421,7 @@ async function loadStats() {
 
 /** Carga el historial de subidas */
 async function loadHistory() {
+    // ... (El resto de la función loadHistory se mantiene sin cambios) ...
     try {
         const historySnapshot = await leadsCollection
             .orderBy('uploadDate', 'desc')
