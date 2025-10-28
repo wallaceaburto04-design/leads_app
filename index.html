@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>App de Leads | Panel de Control (Firebase/Netlify)</title>
+    <link rel="stylesheet" href="style.css"> 
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        /* CSS para ocultar el panel inicialmente */
+        .hidden {
+            display: none !important;
+        }
+    </style>
+    
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
+</head>
+<body>
+
+    <div class="container">
+        
+        <div class="header-info">
+            <h1><i class="fas fa-chart-line"></i> Panel de Leads Dinámico</h1>
+            <div id="current-datetime" class="datetime-box"></div>
+        </div>
+        
+
+        <div id="feedback-message" style="margin-bottom: 20px;"></div>
+
+        <div style="display: flex; gap: 15px; margin-bottom: 20px;">
+            <button id="toggle-sale-form" style="padding: 10px 20px; background-color: #f7931e; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                <i class="fas fa-search-dollar"></i> Registrar/Buscar Venta
+            </button>
+
+            <button id="toggle-upload-form" style="padding: 10px 20px; background-color: #1a73e8; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                <i class="fas fa-file-upload"></i> Mostrar Carga de Archivo
+            </button>
+        </div>
+
+        <hr>
+
+        <div id="sale-registration-section" class="hidden">
+            <h2><i class="fas fa-handshake"></i> Registrar Venta por Número</h2>
+            <form id="sale-search-form" style="margin-bottom: 30px;">
+                
+                <label for="register_seller_name">Vendedor que registra la venta:</label>
+                <input type="text" id="register_seller_name" placeholder="Escriba aquí (SOLO MAYÚSCULAS)" required style="padding: 10px; border: 1px solid #ccc; width: 100%; box-sizing: border-box; margin-bottom: 10px;">
+                
+                <label for="sale_type_select">Tipo de Venta:</label>
+                <select id="sale_type_select" required style="padding: 10px; border: 1px solid #ccc; width: 100%; box-sizing: border-box; margin-bottom: 10px;">
+                    <option value="NEW">Venta Nueva (NEW SALE)</option>
+                    <option value="CHARGE">Cobro Recurrente (CHARGE)</option>
+                </select>
+                
+                <label for="sale_amount_input">Monto de la Venta ($):</label>
+                <input type="number" step="0.01" id="sale_amount_input" placeholder="Ej: 15.99" required style="padding: 10px; border: 1px solid #ccc; width: 100%; box-sizing: border-box; margin-bottom: 15px;">
+                
+                <label for="search_phone">Buscar Número de Teléfono:</label>
+                <div style="display: flex; gap: 10px; margin-top: 5px;">
+                    <input type="text" id="search_phone" placeholder="Ej: 1234567890" required style="padding: 10px; border: 1px solid #ccc; flex-grow: 1;">
+                    <button type="submit" style="padding: 10px 20px; background-color: #f7931e; color: white; border: none; border-radius: 5px; cursor: pointer;"><i class="fas fa-search"></i> Buscar</button>
+                </div>
+            </form>
+            
+            <div id="lead-info-container" style="border: 1px solid #ddd; padding: 20px; border-radius: 8px; margin-bottom: 40px; display: none; background-color: #fff;">
+            </div>
+            <hr>
+        </div>
+
+        <div id="upload-section" class="hidden">
+            <h2><i class="fas fa-file-upload"></i> Cargar Nuevo Archivo</h2>
+            <form id="upload-form" style="margin-bottom: 40px;">
+                
+                <label for="batch_name_input">Nombre de la Carga / Lote:</label><br>
+                <input type="text" id="batch_name_input" placeholder="Ej: Campaña Enero 2025" required style="margin: 5px 0 15px 0; padding: 10px; border: 1px solid #ccc; width: 100%; box-sizing: border-box;"><br>
+
+                <label for="excel_file_input">Seleccionar archivo (.xlsx o .xls):</label><br>
+                <input type="file" id="excel_file_input" accept=".xls, .xlsx" required style="margin: 10px 0; padding: 10px; border: 1px solid #ccc; border-radius: 5px;"><br>
+                
+                <button type="submit" id="submit-btn" style="padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-size: 1em; color: white;">
+                    <i class="fas fa-upload"></i> Procesar y Guardar Leads
+                </button>
+            </form>
+            
+            <div id="progress-bar-container" style="display: none;">
+                <div id="progress-bar">0%</div>
+            </div>
+            <hr>
+        </div>
+
+        
+        <h2><i class="fas fa-filter"></i> Estadísticas y Filtros</h2>
+        
+        <form id="filter-form" style="margin-bottom: 20px;">
+            <label for="filter_month">Filtrar por Mes (Fecha de Subida):</label>
+            <select id="filter_month" onchange="loadStats()" style="padding: 8px; border-radius: 5px;">
+                <option value="">-- Todos los Meses --</option>
+                </select>
+        </form>
+        
+        <h3 id="global-stats-title"><i class="fas fa-globe"></i> Totales del Sistema (Filtrados)</h3>
+        <div class="stats-grid" id="global-stats-container">
+            <div class="stat-box">Total Leads: <span id="total-leads">0</span></div>
+            <div class="stat-box">Ventas: <span id="total-sales">0</span></div>
+            <div class="stat-box">Monto Total: <span id="total-amount">$0.00</span></div>
+            <div class="stat-box">Tasa de Conversión: <span id="conversion-rate">0%</span></div>
+        </div>
+        
+        <hr>
+
+        <h2><i class="fas fa-history"></i> Historial de Subidas y Análisis por Lote</h2>
+        <div id="history-container">
+            </div>
+        
+    </div> <script src="app.js"></script>
+</body>
+</html>
