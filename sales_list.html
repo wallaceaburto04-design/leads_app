@@ -8,31 +8,19 @@
     
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+    
     <style>
+        /* Estilos específicos para la tabla, ya definidos en style.css pero se incluyen las clases clave para referencia */
         .data-table {
             width: 100%;
             border-collapse: collapse;
             margin-top: 20px;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
-            background-color: white;
         }
         .data-table th, .data-table td {
             padding: 12px 15px;
             text-align: left;
             border-bottom: 1px solid #eee;
         }
-        .data-table th {
-            background-color: #e6f0ff;
-            color: #1a73e8;
-            font-weight: 600;
-            text-transform: uppercase;
-        }
-        .data-table tr:hover {
-            background-color: #f9f9f9;
-        }
-        .new-sale { color: #007bff; font-weight: bold; }
-        .charge-sale { color: #f7931e; font-weight: bold; }
-        .amount { color: #28a745; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -48,11 +36,14 @@
     </div>
 
     <script>
-        // *** REEMPLAZA CON TUS CREDENCIALES ***
+        // ************************************************************
+        // REEMPLAZA CON TUS CREDENCIALES DE FIREBASE
+        // ************************************************************
         const firebaseConfig = {
             apiKey: "AIzaSyCfsgjh5bKgOG0FTQqJ0GtvSRrqMuPuPZw",
             projectId: "leads-eb362",
-            // ... otros campos
+            authDomain: "leads-eb362.firebaseapp.com",
+            // Añade el resto de tus campos aquí si es necesario
         };
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
@@ -60,35 +51,46 @@
 
         document.addEventListener('DOMContentLoaded', loadSalesList);
 
+        /**
+         * Función principal para cargar la lista de ventas desde Firebase
+         * usando los filtros de la URL.
+         */
         async function loadSalesList() {
             const params = new URLSearchParams(window.location.search);
             const filterMonth = params.get('filter_month');
-            const filterType = params.get('sale_type');
+            const filterType = params.get('sale_type'); // NEW o CHARGE
             const container = document.getElementById('sales-table-container');
             
+            // 1. Crear consulta base: isSale == true y ordenar
             let query = leadsCollection.where('isSale', '==', true).orderBy('saleDate', 'desc');
             let title = 'Todas las Ventas Registradas';
             
-            // 1. Aplicar filtro de Mes (Requiere rango, ya que Firestore no soporta búsquedas por mes)
+            // 2. Aplicar filtro de Tipo de Venta (si existe)
+            if (filterType) {
+                const type = filterType.toUpperCase();
+                query = query.where('saleType', '==', type);
+                title = `${type} SALES` + (filterMonth ? ` en ${new Date(filterMonth).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}` : '');
+            }
+            
+            // 3. Aplicar filtro de Mes (si existe)
             if (filterMonth) {
                 const [year, month] = filterMonth.split('-');
                 const startDate = new Date(year, month - 1, 1);
                 const endDate = new Date(year, month, 0, 23, 59, 59);
                 
-                // Nota: Firestore solo permite encadenar rangos de tiempo. 
-                // Asumiendo que 'saleDate' y 'uploadDate' están cerca, usaremos 'saleDate' para el filtro de ventas.
-                // Sin embargo, por simplicidad y eficiencia, Firebase requiere un índice compuesto aquí.
-                // Usaremos un filtro simple por 'uploadDate' (si lo tuviéramos) para fines de demostración.
-                title += ` en ${new Date(filterMonth).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}`;
-            }
-            
-            // 2. Aplicar filtro de Tipo de Venta
-            if (filterType) {
-                query = query.where('saleType', '==', filterType.toUpperCase());
-                title = `${filterType.toUpperCase()} SALES` + (filterMonth ? ` en ${new Date(filterMonth).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}` : '');
+                // Firestore requiere que los filtros de rango sean sobre el campo que se ordena.
+                // Asumiremos que el índice compuesto que creaste incluye 'saleDate' y 'isSale'.
+                query = query.where('saleDate', '>=', startDate).where('saleDate', '<=', endDate);
+                
+                // Si ya teníamos título de tipo de venta, lo ajustamos
+                if (!filterType) {
+                     title += ` en ${new Date(filterMonth).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}`;
+                }
             }
 
+
             document.getElementById('sales-list-title').innerHTML = `<i class='fas fa-receipt'></i> ${title}`;
+            container.innerHTML = '<p id="loading-sales-message">Cargando lista de ventas...</p>';
 
             try {
                 const snapshot = await query.get();
@@ -104,17 +106,17 @@
                 snapshot.forEach(doc => {
                     const row = doc.data();
                     const saleClass = (row.saleType || 'NEW').toLowerCase() + '-sale';
-                    const monto = (row.saleAmount || 0).toFixed(2);
-                    totalMontoAcumulado += row.saleAmount || 0;
+                    
+                    const monto = row.saleAmount || 0;
+                    totalMontoAcumulado += monto;
                     
                     const saleDateStr = row.saleDate ? new Date(row.saleDate.seconds * 1000).toLocaleDateString() : 'N/A';
                     const uploadDateStr = row.uploadDate ? new Date(row.uploadDate.seconds * 1000).toLocaleDateString() : 'N/A';
-
-
+                    
                     tableRows += `
                     <tr>
-                        <td><span class="${saleClass}">${row.saleType}</span></td>
-                        <td><span class="amount">$${monto}</span></td>
+                        <td><span class="${saleClass}">${row.saleType || 'N/A'}</span></td>
+                        <td><span class="amount">$${monto.toFixed(2)}</span></td>
                         <td><strong>${row.phone}</strong> (${row.firstName})</td>
                         <td>${row.sellerName || 'N/A'}</td>
                         <td>${saleDateStr}</td>
