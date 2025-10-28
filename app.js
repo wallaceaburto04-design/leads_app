@@ -1,7 +1,7 @@
 // app.js
 
 // ************************************************************
-// 1. CONFIGURACIÓN DE FIREBASE (Añadido tus credenciales)
+// 1. CONFIGURACIÓN DE FIREBASE (Tus Credenciales)
 // ************************************************************
 const firebaseConfig = {
     apiKey: "AIzaSyCfsgjh5bKgOG0FTQqJ0GtvSRrqMuPuPZw",
@@ -16,10 +16,10 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const leadsCollection = db.collection('leads');
-const sellersCollection = db.collection('sellers'); // Aunque no se usa directamente, se mantiene la referencia
+const sellersCollection = db.collection('sellers'); // Mantener la referencia
 
 // ************************************************************
-// 2. UTILIDADES Y MANEJO DE VISTAS (Se mantienen las funciones auxiliares)
+// 2. UTILIDADES Y MANEJO DE VISTAS (Se mantienen)
 // ************************************************************
 
 /** Muestra un mensaje de feedback */
@@ -100,11 +100,14 @@ document.getElementById('upload-form').addEventListener('submit', async function
     }, 100);
 
     try {
-        // CORRECCIÓN 1: LEER TODOS LOS NÚMEROS EXISTENTES ANTES DE PROCESAR
+        // CORRECCIÓN CLAVE: LEER TODOS LOS NÚMEROS EXISTENTES SIN USAR .select()
         progressBar.textContent = '20% (Verificando duplicados existentes...)';
-        const existingLeadsSnapshot = await leadsCollection.select('phone').get();
+        
+        // Hacemos una consulta general, es menos eficiente en lectura, pero más compatible
+        const existingLeadsSnapshot = await leadsCollection.get();
         const existingPhoneNumbers = new Set();
         existingLeadsSnapshot.forEach(doc => {
+            // Usamos .data().phone para extraer el campo
             existingPhoneNumbers.add(doc.data().phone);
         });
 
@@ -120,7 +123,11 @@ document.getElementById('upload-form').addEventListener('submit', async function
         const uploadDate = firebase.firestore.Timestamp.now();
         const batchId = uploadDate.toDate().getTime().toString(); 
 
-        const batch = db.batch();
+        // Los batches están limitados a 500 operaciones por lote
+        const MAX_BATCH_SIZE = 499; 
+        let currentBatch = db.batch();
+        let batchCounter = 0;
+
         const phoneNumbersInFile = new Set(); // Para duplicados dentro del mismo archivo
         
         // Procesamiento e Inserción
@@ -153,15 +160,24 @@ document.getElementById('upload-form').addEventListener('submit', async function
                 batchId: batchId
             };
             
-            // Añadir al batch
+            // Añadir al lote actual
             const newDocRef = leadsCollection.doc();
-            batch.set(newDocRef, leadData);
+            currentBatch.set(newDocRef, leadData);
+            batchCounter++;
             insertedCount++;
+
+            // Ejecutar el lote si alcanza el tamaño máximo
+            if (batchCounter >= MAX_BATCH_SIZE) {
+                await currentBatch.commit();
+                currentBatch = db.batch(); // Iniciar un nuevo lote
+                batchCounter = 0;
+            }
         }
         
-        // Ejecutar el batch de inserción
-        progressBar.textContent = '90% (Enviando a Firebase...)';
-        await batch.commit();
+        // Ejecutar el lote restante (si hay operaciones pendientes)
+        if (batchCounter > 0) {
+            await currentBatch.commit();
+        }
 
         clearInterval(interval);
         progressBar.style.width = '100%';
@@ -231,7 +247,7 @@ document.getElementById('sale-search-form').addEventListener('submit', async fun
                     <li>**Estado de Venta:** <span style='font-weight: bold; color: ${lead.isSale ? 'green' : 'red'}'>${saleStatus}</span></li>
                 </ul>`;
 
-            if (!lead.isSale || saleType === 'CHARGE') { 
+            if (!lead.isSale || saleType === 'CHARGE') { // Permitir CHARGE incluso si ya está vendido
                 html += `<button id='register-sale-btn' data-doc-id='${docId}' 
                         data-phone='${lead.phone}' 
                         data-seller='${sellerName}' 
@@ -292,18 +308,16 @@ async function loadStats() {
         const filterMonth = document.getElementById('filter_month').value;
         let query = leadsCollection.orderBy('uploadDate', 'desc');
 
-        // Note: Firestore no soporta SUM nativamente en el cliente. Debemos hacerlo en el cliente.
-
         const snapshot = await query.get();
         let totalLeads = 0;
         let totalSales = 0;
         let totalAmount = 0;
         let newSalesCount = 0;
         let chargeSalesCount = 0;
-        let totalLeadsFiltered = 0; // Para la base de la tasa de conversión
+        let totalLeadsFiltered = 0;
         
         const monthOptions = new Map();
-        
+
         snapshot.forEach(doc => {
             const lead = doc.data();
             const uploadMonth = lead.uploadDate.toDate().toISOString().substring(0, 7);
