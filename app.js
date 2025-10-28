@@ -4,12 +4,12 @@
 // 1. CONFIGURACIÓN DE FIREBASE (REEMPLAZA CON TUS CREDENCIALES)
 // ************************************************************
 const firebaseConfig = {
-    apiKey: "TU_API_KEY_DE_FIREBASE",
-    authDomain: "TU_PROJECT_ID.firebaseapp.com",
-    projectId: "TU_PROJECT_ID",
-    storageBucket: "TU_PROJECT_ID.appspot.com",
-    messagingSenderId: "1234567890",
-    appId: "1:1234567890:web:xxxxxxxxxxxx"
+    piKey: "AIzaSyCfsgjh5bKgOG0FTQqJ0GtvSRrqMuPuPZw",
+  authDomain: "leads-eb362.firebaseapp.com",
+  projectId: "leads-eb362",
+  storageBucket: "leads-eb362.firebasestorage.app",
+  messagingSenderId: "887122735507",
+  appId: "1:887122735507:web:52ac9e27232c8c32f6f866"
 };
 
 // Inicializar Firebase
