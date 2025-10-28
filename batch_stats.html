@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Detalles de Campaña | Leads App</title>
+    <link rel="stylesheet" href="style.css"> 
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+</head>
+<body>
+
+    <div class="container">
+        <a href="index.html" style="text-decoration: none; display: inline-block; margin-bottom: 20px; color: #1a73e8;"><i class="fas fa-arrow-left"></i> Volver al Panel</a>
+        
+        <h2 id="batch-title"><i class="fas fa-chart-pie"></i> Estadísticas Detalladas de la Campaña</h2>
+        
+        <div class="stats-grid" id="batch-stats-container">
+            <p id="loading-message">Cargando datos...</p>
+        </div>
+        
+    </div>
+
+    <script>
+        // *** REEMPLAZA CON TUS CREDENCIALES ***
+        const firebaseConfig = {
+            apiKey: "AIzaSyCfsgjh5bKgOG0FTQqJ0GtvSRrqMuPuPZw",
+            projectId: "leads-eb362",
+            // ... otros campos
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const leadsCollection = db.collection('leads');
+
+        document.addEventListener('DOMContentLoaded', loadBatchStats);
+
+        async function loadBatchStats() {
+            const params = new URLSearchParams(window.location.search);
+            const batchId = params.get('batch_id');
+            const batchName = params.get('batch_name');
+            const container = document.getElementById('batch-stats-container');
+            document.getElementById('batch-title').innerHTML = `<i class='fas fa-chart-pie'></i> Estadísticas de Campaña: ${decodeURIComponent(batchName)}`;
+            
+            if (!batchId) {
+                container.innerHTML = '<p class="error-message">ID de lote no encontrado.</p>';
+                return;
+            }
+
+            try {
+                const snapshot = await leadsCollection.where('batchId', '==', batchId).get();
+
+                if (snapshot.empty) {
+                    container.innerHTML = '<p class="error-message">No se encontraron leads para esta campaña.</p>';
+                    return;
+                }
+
+                let totalLeads = 0;
+                let totalSales = 0;
+                let totalAmount = 0;
+                let newSalesCount = 0;
+                let chargeSalesCount = 0;
+                const agentStats = new Map();
+                let uploadDate = '';
+
+                snapshot.forEach(doc => {
+                    const lead = doc.data();
+                    const agent = lead.agenteLeads || 'SIN AGENTE';
+                    totalLeads++;
+                    uploadDate = lead.uploadDate.toDate().toLocaleDateString();
+
+                    if (!agentStats.has(agent)) {
+                        agentStats.set(agent, { leads: 0, sales: 0, new: 0, charge: 0, amount: 0 });
+                    }
+                    
+                    const stats = agentStats.get(agent);
+                    stats.leads++;
+
+                    if (lead.isSale) {
+                        totalSales++;
+                        totalAmount += lead.saleAmount || 0;
+                        stats.sales++;
+                        stats.amount += lead.saleAmount || 0;
+
+                        if (lead.saleType === 'NEW') stats.new++;
+                        if (lead.saleType === 'CHARGE') stats.charge++;
+                    }
+                });
+                
+                // --- GENERACIÓN DEL HTML DE LAS TARJETAS ---
+                const totalAmountStr = totalAmount.toFixed(2);
+                let statsHTML = '';
+                
+                // Tarjeta 1: Leads del Lote
+                statsHTML += `<div class="card card-upload-info">
+                    <h3><i class="fas fa-clipboard-list"></i> Leads del Lote</h3>
+                    <p>Leads insertados en esta subida:</p>
+                    <strong>${totalLeads.toLocaleString()}</strong>
+                </div>`;
+                
+                // Tarjeta 2: Monto Total de Venta del Lote
+                statsHTML += `<div class="card card-sale-amount">
+                    <h3><i class="fas fa-money-bill-wave"></i> Monto Total Venta Lote</h3>
+                    <p>Monto acumulado de ventas en este lote.</p>
+                    <strong>$${totalAmountStr}</strong>
+                </div>`;
+
+                // Tarjeta 3: Fecha y Nombre del Lote
+                statsHTML += `<div class="card card-total">
+                    <h3><i class="fas fa-calendar-alt"></i> Campaña</h3>
+                    <p>Nombre: ${decodeURIComponent(batchName)}</p>
+                    <strong>${uploadDate}</strong>
+                </div>`;
+                
+                // Tarjeta 4: Distribución por Agente
+                let agentListHTML = '';
+                agentStats.forEach((stats, agentName) => {
+                    const amountStr = stats.amount.toFixed(2);
+                    agentListHTML += `<li>
+                        <span>${agentName}</span> 
+                        <strong style='font-size: 1.0em;'>
+                            ${stats.leads} / 
+                            <span style='color: #007bff;'>${stats.new}</span> / 
+                            <span style='color: #f7931e;'>${stats.charge}</span> 
+                            <span style='color: #28a745;'>($${amountStr})</span>
+                        </strong>
+                    </li>`;
+                });
+
+                statsHTML += `<div class="card card-agents card-agent-list">
+                    <h3><i class="fas fa-user-tag"></i> Reparto por Agente</h3>
+                    <p>Asignados / Venta (Monto): <span style="color:#007bff;">N</span>/<span style="color:#f7931e;">C</span></p>
+                    <ul>${agentListHTML}</ul>
+                </div>`;
+                
+                container.innerHTML = statsHTML;
+
+            } catch (error) {
+                container.innerHTML = `<p class="error-message">Error al cargar datos de Firebase: ${error.message}</p>`;
+                console.error("Firebase Error:", error);
+            }
+        }
+    </script>
+</body>
+</html>
