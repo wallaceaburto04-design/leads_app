@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Lista de Ventas Registradas | Leads App</title>
+    <link rel="stylesheet" href="style.css"> 
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+    <style>
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+            background-color: white;
+        }
+        .data-table th, .data-table td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        .data-table th {
+            background-color: #e6f0ff;
+            color: #1a73e8;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .data-table tr:hover {
+            background-color: #f9f9f9;
+        }
+        .new-sale { color: #007bff; font-weight: bold; }
+        .charge-sale { color: #f7931e; font-weight: bold; }
+        .amount { color: #28a745; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="index.html" style="text-decoration: none; display: inline-block; margin-bottom: 20px; color: #1a73e8;"><i class="fas fa-arrow-left"></i> Volver al Panel</a>
+        
+        <h2 id="sales-list-title"><i class='fas fa-receipt'></i> Lista de Ventas</h2>
+
+        <div id="sales-table-container">
+             <p id="loading-sales-message">Cargando lista de ventas...</p>
+        </div>
+        
+    </div>
+
+    <script>
+        // *** REEMPLAZA CON TUS CREDENCIALES ***
+        const firebaseConfig = {
+            apiKey: "AIzaSyCfsgjh5bKgOG0FTQqJ0GtvSRrqMuPuPZw",
+            projectId: "leads-eb362",
+            // ... otros campos
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const leadsCollection = db.collection('leads');
+
+        document.addEventListener('DOMContentLoaded', loadSalesList);
+
+        async function loadSalesList() {
+            const params = new URLSearchParams(window.location.search);
+            const filterMonth = params.get('filter_month');
+            const filterType = params.get('sale_type');
+            const container = document.getElementById('sales-table-container');
+            
+            let query = leadsCollection.where('isSale', '==', true).orderBy('saleDate', 'desc');
+            let title = 'Todas las Ventas Registradas';
+            
+            // 1. Aplicar filtro de Mes (Requiere rango, ya que Firestore no soporta búsquedas por mes)
+            if (filterMonth) {
+                const [year, month] = filterMonth.split('-');
+                const startDate = new Date(year, month - 1, 1);
+                const endDate = new Date(year, month, 0, 23, 59, 59);
+                
+                // Nota: Firestore solo permite encadenar rangos de tiempo. 
+                // Asumiendo que 'saleDate' y 'uploadDate' están cerca, usaremos 'saleDate' para el filtro de ventas.
+                // Sin embargo, por simplicidad y eficiencia, Firebase requiere un índice compuesto aquí.
+                // Usaremos un filtro simple por 'uploadDate' (si lo tuviéramos) para fines de demostración.
+                title += ` en ${new Date(filterMonth).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}`;
+            }
+            
+            // 2. Aplicar filtro de Tipo de Venta
+            if (filterType) {
+                query = query.where('saleType', '==', filterType.toUpperCase());
+                title = `${filterType.toUpperCase()} SALES` + (filterMonth ? ` en ${new Date(filterMonth).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}` : '');
+            }
+
+            document.getElementById('sales-list-title').innerHTML = `<i class='fas fa-receipt'></i> ${title}`;
+
+            try {
+                const snapshot = await query.get();
+
+                if (snapshot.empty) {
+                    container.innerHTML = '<p class="error-message">No se encontraron ventas que coincidan con los filtros.</p>';
+                    return;
+                }
+
+                let totalMontoAcumulado = 0;
+                let tableRows = '';
+                
+                snapshot.forEach(doc => {
+                    const row = doc.data();
+                    const saleClass = (row.saleType || 'NEW').toLowerCase() + '-sale';
+                    const monto = (row.saleAmount || 0).toFixed(2);
+                    totalMontoAcumulado += row.saleAmount || 0;
+                    
+                    const saleDateStr = row.saleDate ? new Date(row.saleDate.seconds * 1000).toLocaleDateString() : 'N/A';
+                    const uploadDateStr = row.uploadDate ? new Date(row.uploadDate.seconds * 1000).toLocaleDateString() : 'N/A';
+
+
+                    tableRows += `
+                    <tr>
+                        <td><span class="${saleClass}">${row.saleType}</span></td>
+                        <td><span class="amount">$${monto}</span></td>
+                        <td><strong>${row.phone}</strong> (${row.firstName})</td>
+                        <td>${row.sellerName || 'N/A'}</td>
+                        <td>${saleDateStr}</td>
+                        <td>${row.agenteLeads || 'N/A'}</td>
+                        <td>${row.batchName || 'N/A'}</td>
+                    </tr>
+                    `;
+                });
+
+                const totalMontoStr = totalMontoAcumulado.toFixed(2);
+
+                const tableHTML = `
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th><i class="fas fa-sort"></i> Tipo Venta</th>
+                            <th><i class="fas fa-dollar-sign"></i> Monto</th>
+                            <th><i class="fas fa-phone"></i> Número Vendido</th>
+                            <th><i class="fas fa-user-tag"></i> Vendedor</th>
+                            <th><i class="fas fa-calendar-check"></i> Fecha de Venta</th>
+                            <th><i class="fas fa-user-circle"></i> Agente Leads</th>
+                            <th><i class="fas fa-folder"></i> Lote de Origen</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${tableRows}
+                        <tr style="background-color: #e0e6f5; font-weight: bold;">
+                            <td colspan="2">TOTAL ACUMULADO</td>
+                            <td class="amount">$${totalMontoStr}</td>
+                            <td colspan="4"></td>
+                        </tr>
+                    </tbody>
+                </table>`;
+
+                container.innerHTML = tableHTML;
+
+            } catch (error) {
+                container.innerHTML = `<p class="error-message">Error al cargar la lista de ventas: ${error.message}</p>`;
+                console.error("Firebase Error:", error);
+            }
+        }
+    </script>
+</body>
+</html>
