@@ -1,0 +1,274 @@
+/* style.css */
+
+/* === GLOBAL & LAYOUT === */
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    padding: 0;
+    margin: 0;
+    background-color: #f0f2f5; /* Fondo suave */
+    color: #333;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 30px auto;
+    padding: 20px;
+    background-color: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+}
+
+h1, h2 {
+    border-bottom: 2px solid #e0e0e0;
+    padding-bottom: 15px;
+    margin-bottom: 30px;
+    color: #1a73e8; /* Azul primario */
+}
+
+/* === HEADER Y UTILIDADES === */
+.header-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.datetime-box {
+    background-color: #4CAF50; /* Verde dinámico */
+    color: white;
+    padding: 10px 20px;
+    border-radius: 8px;
+    text-align: right;
+    font-weight: 600;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+/* Mensajes de feedback */
+.success-message {
+    background-color: #e6ffed;
+    color: #1f7a3f;
+    border: 1px solid #c8e6c9;
+    padding: 15px;
+    margin-bottom: 20px;
+    border-radius: 8px;
+    animation: fadeIn 0.5s;
+}
+.error-message {
+    background-color: #fce6e6;
+    color: #a31818;
+    border: 1px solid #ecc8c8;
+    padding: 15px;
+    margin-bottom: 20px;
+    border-radius: 8px;
+    animation: fadeIn 0.5s;
+}
+
+/* === BOTONES Y FORMULARIOS === */
+/* Estilo general para botones de acción */
+button {
+    background-color: #1a73e8;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 1em;
+    padding: 10px 20px;
+    transition: background-color 0.3s, transform 0.2s;
+}
+button:hover:not(:disabled) {
+    background-color: #0b50b3 !important;
+    transform: translateY(-2px);
+}
+button:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+/* Input generales */
+input[type="text"], input[type="number"], input[type="file"], select {
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    transition: border-color 0.3s;
+}
+input:focus, select:focus {
+    border-color: #1a73e8;
+    outline: none;
+}
+
+/* === ESTADÍSTICAS Y TARJETAS === */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 25px;
+    margin-top: 20px;
+}
+
+.card {
+    background-color: white;
+    border-radius: 10px;
+    padding: 25px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+    transition: transform 0.3s, box-shadow 0.3s;
+    border-left: 5px solid; /* Borde izquierdo para color de tarjeta */
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+.card h3 {
+    margin-top: 0;
+    color: #1a73e8;
+    display: flex;
+    align-items: center;
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.card h3 i {
+    margin-right: 10px;
+    font-size: 1.2em;
+}
+
+.card strong {
+    font-size: 2em;
+    color: #333;
+    display: block;
+    margin-top: 5px;
+}
+
+/* Colores de las tarjetas */
+.card-total { border-left-color: #f9d854; } /* Amarillo */
+.card-agent-list { border-left-color: #17a2b8; } /* Cian */
+.card-upload-info { border-left-color: #4CAF50; } /* Verde */
+.card-sale-amount { border-left-color: #28a745; } /* Verde Oscuro */
+
+
+/* Estilos específicos para métricas de venta en stats.php */
+.card-new-sale { border-left-color: #007bff; } /* Azul para NEW */
+.card-charge-sale { border-left-color: #f7931e; } /* Naranja para CHARGE */
+
+
+/* Lista de Agentes (en stats_lote) */
+.card-agents ul {
+    list-style: none;
+    padding: 0;
+    margin-top: 15px;
+}
+
+.card-agents li {
+    padding: 8px 0;
+    border-bottom: 1px dashed #e0e0e0;
+    display: flex;
+    justify-content: space-between;
+    font-size: 1.0em;
+}
+
+/* === HISTORIAL Y DESCARGAS === */
+.history-list {
+    list-style: none;
+    padding: 0;
+}
+
+.history-item {
+    margin-bottom: 10px;
+}
+
+.history-link {
+    text-decoration: none;
+    color: #1a73e8;
+    font-weight: 600;
+    display: block;
+    padding: 12px;
+    border-radius: 8px;
+    background-color: #e6f0ff;
+    transition: background-color 0.3s, transform 0.2s;
+    cursor: pointer;
+}
+
+.history-link:hover {
+    background-color: #d1e3ff;
+    transform: translateX(5px);
+}
+
+.history-link i {
+    margin-right: 10px;
+    font-size: 1.2em;
+}
+
+.download-btn {
+    transition: background-color 0.2s;
+}
+
+.download-btn:hover {
+    background-color: #0b50b3 !important;
+}
+
+/* Contenido de estadísticas (Inicialmente oculto) */
+.stats-content {
+    display: none;
+    padding-top: 20px;
+    border-top: 1px solid #e0e0e0;
+    margin-top: 10px;
+    animation: fadeIn 0.6s ease-out;
+}
+
+/* === TABLAS (SALES LIST) === */
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+    background-color: white;
+}
+.data-table th, .data-table td {
+    padding: 12px 15px;
+    text-align: left;
+    border-bottom: 1px solid #eee;
+}
+.data-table th {
+    background-color: #e6f0ff;
+    color: #1a73e8;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+.data-table tr:hover {
+    background-color: #f9f9f9;
+}
+
+/* Colores de texto en listas y tablas */
+.new-sale { color: #007bff; font-weight: bold; }
+.charge-sale { color: #f7931e; font-weight: bold; }
+.amount { color: #28a745; font-weight: bold; }
+
+
+/* === BARRA DE PROGRESO === */
+#progress-bar-container {
+    margin-top: 20px;
+    background-color: #e0e0e0;
+    border-radius: 5px;
+    overflow: hidden;
+}
+
+#progress-bar {
+    height: 25px;
+    background-color: #1a73e8;
+    border-radius: 5px;
+    text-align: center;
+    line-height: 25px;
+    color: white;
+    width: 0%;
+    transition: width 0.4s ease-out;
+    font-weight: bold;
+}
+
+/* === MISC Y ANIMACIONES === */
+.hidden {
+    display: none !important;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
