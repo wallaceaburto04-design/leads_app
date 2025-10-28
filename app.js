@@ -19,7 +19,7 @@ const leadsCollection = db.collection('leads');
 const sellersCollection = db.collection('sellers');
 
 // ************************************************************
-// 2. UTILIDADES Y MANEJO DE VISTAS (Se mantienen)
+// 2. UTILIDADES Y MANEJO DE VISTAS
 // ************************************************************
 
 /** Muestra un mensaje de feedback */
@@ -68,7 +68,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ************************************************************
-// 3. LÓGICA DE CARGA DE ARCHIVOS (SUBIDA) - CORREGIDA
+// 3. LÓGICA DE CARGA DE ARCHIVOS (SUBIDA)
 // ************************************************************
 
 document.getElementById('upload-form').addEventListener('submit', async function(e) {
@@ -100,7 +100,7 @@ document.getElementById('upload-form').addEventListener('submit', async function
     }, 100);
 
     try {
-        // CORRECCIÓN CLAVE: LEER TODOS LOS NÚMEROS EXISTENTES SIN USAR .select()
+        // CORRECCIÓN: LEER TODOS LOS NÚMEROS EXISTENTES PARA VERIFICAR DUPLICADOS
         progressBar.textContent = '20% (Verificando duplicados existentes...)';
         
         const existingLeadsSnapshot = await leadsCollection.get();
@@ -198,7 +198,7 @@ document.getElementById('upload-form').addEventListener('submit', async function
 });
 
 // ************************************************************
-// 4. LÓGICA DE BÚSQUEDA Y REGISTRO DE VENTA (Simplificado)
+// 4. LÓGICA DE BÚSQUEDA Y REGISTRO DE VENTA
 // ************************************************************
 
 document.getElementById('sale-search-form').addEventListener('submit', async function(e) {
@@ -296,7 +296,7 @@ document.getElementById('lead-info-container').addEventListener('click', async f
 });
 
 // ************************************************************
-// 5. LÓGICA DE ESTADÍSTICAS (GENERACIÓN DE TARJETAS) - CORREGIDA
+// 5. LÓGICA DE ESTADÍSTICAS (GENERACIÓN DE TARJETAS)
 // ************************************************************
 
 /** Carga las estadísticas globales y genera las opciones del filtro */
@@ -343,8 +343,14 @@ async function loadStats() {
 
         const conversionRate = totalLeadsFiltered > 0 && totalSales > 0 ? ((totalSales / totalLeadsFiltered) * 100).toFixed(2) : 0;
         const totalAmountStr = totalAmount.toFixed(2);
-        const totalNewAmountStr = (newSalesCount > 0 ? (totalAmount * (newSalesCount / totalSales)) : 0).toFixed(2); // Estimación simple
-        const totalChargeAmountStr = (chargeSalesCount > 0 ? (totalAmount * (chargeSalesCount / totalSales)) : 0).toFixed(2); // Estimación simple
+        
+        // Calculamos el monto individual de NEW y CHARGE basado en el total (Estimación simple)
+        const totalAmountSales = newSalesCount + chargeSalesCount;
+        const totalNewAmount = totalAmountSales > 0 ? totalAmount * (newSalesCount / totalAmountSales) : 0;
+        const totalChargeAmount = totalAmountSales > 0 ? totalAmount * (chargeSalesCount / totalAmountSales) : 0;
+
+        const totalNewAmountStr = totalNewAmount.toFixed(2);
+        const totalChargeAmountStr = totalChargeAmount.toFixed(2);
         
         // --- GENERACIÓN DEL HTML DE LAS TARJETAS ---
         let statsHTML = '';
@@ -421,7 +427,6 @@ async function loadStats() {
 
 /** Carga el historial de subidas */
 async function loadHistory() {
-    // ... (El resto de la función loadHistory se mantiene sin cambios) ...
     try {
         const historySnapshot = await leadsCollection
             .orderBy('uploadDate', 'desc')
@@ -465,12 +470,15 @@ async function loadHistory() {
             const conversionRate = batch.totalLeads > 0 ? ((batch.totalSales / batch.totalLeads) * 100).toFixed(2) : 0;
             const totalAmountStr = batch.totalAmount.toFixed(2);
             
+            // Enlace al detalle de la campaña (batch_stats.html)
+            const batchStatsLink = `batch_stats.html?batch_id=${batch.id}&batch_name=${encodeURIComponent(batch.name)}`;
+            
             html += `<li class='history-item'>
                 <div style='display: flex; justify-content: space-between; align-items: center;'>
-                    <span style='flex-grow: 1; margin-right: 10px;'>
+                    <a href='${batchStatsLink}' class='excel-icon history-link' style='flex-grow: 1; margin-right: 10px;'>
                         <i class='fas fa-folder-open'></i> **${batch.name}** (Subido el ${batch.date})
                         <small style="margin-left: 10px;">Leads: ${batch.totalLeads} | Ventas: ${batch.totalSales} | Monto: $${totalAmountStr} | Tasa: ${conversionRate}%</small>
-                    </span>
+                    </a>
                     
                     <a href='#' class='download-btn' data-batch-id='${batch.id}' data-batch-name='${batch.name}'
                         style='padding: 8px 12px; background-color: #007bff; color: white; border-radius: 5px; text-decoration: none; font-size: 0.9em;' title='Descargar Leads de ${batch.name}'>
